@@ -9,18 +9,34 @@
 
 use Dotenv\Dotenv;
 use Illuminate\Database\Capsule\Manager as Capsule;
+use Illuminate\Support\Facades\DB;
 
 require __DIR__ . '/../vendor/autoload.php';
 
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->load();
 
-// Setup Laravel Eloquent with MySQL
+// Setup Laravel Eloquent with MySQL directly from .env
 $capsule = new Capsule;
 
-$dbConfig = require __DIR__ . '/../config/database.php';
+$host = getenv('DB_HOST') ?: '127.0.0.1';
+$port = getenv('DB_PORT') ?: '3306';
+$database = getenv('DB_DATABASE') ?: 'botwithdraw';
+$username = getenv('DB_USERNAME') ?: 'root';
+$password = getenv('DB_PASSWORD') ?: '';
 
-$capsule->addConnection($dbConfig['connections']['mysql']);
+$capsule->addConnection([
+    'driver' => 'mysql',
+    'host' => $host,
+    'port' => $port,
+    'database' => $database,
+    'username' => $username,
+    'password' => $password,
+    'charset' => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
+    'prefix' => '',
+]);
+
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 
@@ -30,8 +46,6 @@ $apiUrl = "https://api.telegram.org/bot$botToken";
 if (empty($botToken)) {
     die("Please set TELEGRAM_BOT_TOKEN in .env file\n");
 }
-
-use Illuminate\Support\Facades\DB;
 
 function getSetting($key, $default = '') {
     $result = DB::table('settings')->where('key', $key)->first();
