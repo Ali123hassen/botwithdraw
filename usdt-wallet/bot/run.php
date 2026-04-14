@@ -86,12 +86,19 @@ function sendMessage($chatId, $text, $keyboard = null) {
         $data['reply_markup'] = json_encode($keyboard);
     }
     
+    echo "Sending message to $chatId...\n";
+    echo "Text length: " . strlen($text) . "\n";
+    
     $ch = curl_init($apiUrl . '/sendMessage');
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+    
+    echo "HTTP Code: $httpCode\n";
+    echo "Response: $response\n";
     
     return $response;
 }
