@@ -86,8 +86,6 @@ function sendMessage($chatId, $text, $keyboard = null) {
         $data['reply_markup'] = json_encode($keyboard);
     }
     
-    echo "Sending message to $chatId...\n";
-    
     $ch = curl_init($apiUrl . '/sendMessage');
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
@@ -96,18 +94,9 @@ function sendMessage($chatId, $text, $keyboard = null) {
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-    
-    echo "HTTP Code: $httpCode\n";
-    echo "Curl Error: $curlError\n";
-    echo "Response: $response\n";
-    
-    return $response;
+    return curl_exec($ch);
+}
 }
 
 function calculateFees($amount, $networkFee, $depositFeePercent) {
@@ -165,17 +154,12 @@ function mainMenuKeyboard() {
 }
 
 function processMessage($message) {
-    echo "Processing message...\n";
-    
     $chatId = $message['chat']['id'];
     $userId = (string) $message['from']['id'];
     $text = $message['text'] ?? '';
     $firstName = $message['from']['first_name'] ?? 'User';
     
-    echo "Chat ID: $chatId, User ID: $userId, Text: $text\n";
-    
     $allowedUserId = getSetting('allowed_user_id', '');
-    echo "Allowed User: $allowedUserId\n";
     
     if ($allowedUserId && $userId !== $allowedUserId) {
         sendMessage($chatId, "⛔ عذراً، ليس لديك صلاحية استخدام هذا البوت.");
@@ -183,7 +167,6 @@ function processMessage($message) {
     }
     
     if ($text === '/start' || $text === 'الرئيسية') {
-        echo "Sending welcome message...\n";
         $welcomeMsg = "🎉 مرحباً بك في بوت سحب USDT!\n\n";
         $welcomeMsg .= "👤 المستخدم: $firstName\n";
         $welcomeMsg .= "🆔 ID: $userId\n\n";
@@ -396,30 +379,13 @@ function processCallback($callback) {
 
 echo "🤖 Bot started. Waiting for messages...\n";
 echo "Press Ctrl+C to stop.\n\n";
-echo "Bot Token: " . substr($botToken, 0, 10) . "...\n";
-echo "API URL: $apiUrl\n\n";
 
 $offset = 0;
 
 while (true) {
     try {
-        echo "Checking for updates...\n";
         $response = file_get_contents($apiUrl . "/getUpdates?offset=$offset&timeout=60");
         $updates = json_decode($response, true);
-        
-        if (!$updates['ok']) {
-            echo "API Error: " . json_encode($updates) . "\n";
-            sleep(5);
-            continue;
-        }
-        
-        if (empty($updates['result'])) {
-            echo "No new messages.\n";
-            sleep(2);
-            continue;
-        }
-        
-        echo "Found " . count($updates['result']) . " update(s)\n";
         
         if ($updates['ok'] && !empty($updates['result'])) {
             foreach ($updates['result'] as $update) {
