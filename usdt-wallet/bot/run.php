@@ -13,10 +13,24 @@ use Illuminate\Support\Facades\DB;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-$dotenv = Dotenv::createImmutable(__DIR__ . '/..');
-$dotenv->load();
+// Load .env manually
+$envFile = __DIR__ . '/../.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos($line, '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            if (!getenv($key)) {
+                putenv("$key=$value");
+            }
+        }
+    }
+}
 
-// Setup Laravel Eloquent with MySQL directly from .env
+// Setup Laravel Eloquent with MySQL
 $capsule = new Capsule;
 
 $host = getenv('DB_HOST') ?: '127.0.0.1';
@@ -40,10 +54,13 @@ $capsule->addConnection([
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 
-$botToken = getenv('TELEGRAM_BOT_TOKEN') ?: '';
+$botToken = getenv('TELEGRAM_BOT_TOKEN') ?: (isset($_ENV['TELEGRAM_BOT_TOKEN']) ? $_ENV['TELEGRAM_BOT_TOKEN'] : '');
 $apiUrl = "https://api.telegram.org/bot$botToken";
 
 if (empty($botToken)) {
+    echo "Checking env vars...\n";
+    echo "TELEGRAM_BOT_TOKEN = " . getenv('TELEGRAM_BOT_TOKEN') . "\n";
+    echo "DB_DATABASE = " . getenv('DB_DATABASE') . "\n";
     die("Please set TELEGRAM_BOT_TOKEN in .env file\n");
 }
 
