@@ -376,13 +376,30 @@ function processCallback($callback) {
 
 echo "🤖 Bot started. Waiting for messages...\n";
 echo "Press Ctrl+C to stop.\n\n";
+echo "Bot Token: " . substr($botToken, 0, 10) . "...\n";
+echo "API URL: $apiUrl\n\n";
 
 $offset = 0;
 
 while (true) {
     try {
+        echo "Checking for updates...\n";
         $response = file_get_contents($apiUrl . "/getUpdates?offset=$offset&timeout=60");
         $updates = json_decode($response, true);
+        
+        if (!$updates['ok']) {
+            echo "API Error: " . json_encode($updates) . "\n";
+            sleep(5);
+            continue;
+        }
+        
+        if (empty($updates['result'])) {
+            echo "No new messages.\n";
+            sleep(2);
+            continue;
+        }
+        
+        echo "Found " . count($updates['result']) . " update(s)\n";
         
         if ($updates['ok'] && !empty($updates['result'])) {
             foreach ($updates['result'] as $update) {
