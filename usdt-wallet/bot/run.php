@@ -7,9 +7,7 @@
  * Make sure to set TELEGRAM_BOT_TOKEN in .env
  */
 
-use Dotenv\Dotenv;
 use Illuminate\Database\Capsule\Manager as Capsule;
-use Illuminate\Support\Facades\DB;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -58,14 +56,13 @@ $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: (isset($_ENV['TELEGRAM_BOT_TOKEN']) 
 $apiUrl = "https://api.telegram.org/bot$botToken";
 
 if (empty($botToken)) {
-    echo "Checking env vars...\n";
-    echo "TELEGRAM_BOT_TOKEN = " . getenv('TELEGRAM_BOT_TOKEN') . "\n";
-    echo "DB_DATABASE = " . getenv('DB_DATABASE') . "\n";
     die("Please set TELEGRAM_BOT_TOKEN in .env file\n");
 }
 
+// Use capsule directly instead of DB facade
 function getSetting($key, $default = '') {
-    $result = DB::table('settings')->where('key', $key)->first();
+    global $capsule;
+    $result = $capsule->table('settings')->where('key', $key)->first();
     return $result ? $result->value : $default;
 }
 
@@ -113,7 +110,8 @@ function calculateFees($amount, $networkFee, $depositFeePercent) {
 }
 
 function saveWithdrawal($userId, $walletAddress, $amount, $networkFee, $depositFeePercent, $totalDeducted) {
-    return DB::table('withdrawals')->insertGetId([
+    global $capsule;
+    return $capsule->table('withdrawals')->insertGetId([
         'telegram_user_id' => $userId,
         'wallet_address' => $walletAddress,
         'amount' => $amount,
@@ -123,13 +121,14 @@ function saveWithdrawal($userId, $walletAddress, $amount, $networkFee, $depositF
         'network' => 'TRC20',
         'currency' => 'USDT',
         'status' => 'pending',
-        'created_at' => now(),
-        'updated_at' => now(),
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
     ]);
 }
 
 function getUserWithdrawals($userId, $limit = 5) {
-    return DB::table('withdrawals')
+    global $capsule;
+    return $capsule->table('withdrawals')
         ->where('telegram_user_id', $userId)
         ->orderBy('created_at', 'desc')
         ->limit($limit)
