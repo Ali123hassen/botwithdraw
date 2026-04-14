@@ -73,29 +73,155 @@ function getFeeSettings() {
     ];
 }
 
-function sendMessage($chatId, $text, $keyboard = null) {
-    global $apiUrl;
-    
-    $data = [
-        'chat_id' => $chatId,
-        'text' => $text,
-        'parse_mode' => 'HTML',
+// MEXC API Configuration
+function getMexcConfig() {
+    return [
+        'api_key' => getSetting('mexc_api_key', ''),
+        'api_secret' => getSetting('mexc_api_secret', ''),
+        'base_url' => 'https://api.mexc.com',
     ];
+}
+
+// Generate MEXC signature
+function generateMexcSignature($apiSecret, $timestamp, $method, $requestPath, $body = '') {
+    $signatureStr = $timestamp . $method . $requestPath . $body;
+    return strtoupper(hash_hmac('sha256', $signatureStr, $apiSecret));
+}
+
+// Withdraw USDT via MEXC API
+function withdrawViaMexc($toAddress, $amount) {
+    global $capsule;
     
-    if ($keyboard) {
-        $data['reply_markup'] = json_encode($keyboard);
+    $config = getMexcConfig();
+    $apiKey = $config['api_key'];
+    $apiSecret = $config['api_secret'];
+    $baseUrl = $config['base_url'];
+    
+    if (empty($apiKey) || empty($apiSecret)) {
+        return ['ok' => false, 'error' => 'MEXC API not configured'];
     }
     
-    $ch = curl_init($apiUrl . '/sendMessage');
+    $method = 'POST';
+    $requestPath = '/api/v3/capital/withdraw';
+    
+    $params = [
+        'coin' => 'USDT',
+        'address' => $toAddress,
+        'amount' => (string) $amount,
+        'network' => 'TRC20',
+    ];
+    
+    $body = json_encode($params);
+    $timestamp = time() * 1000;
+    $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath, $body);
+    
+    $headers = [
+        'Content-Type: application/json',
+        "X-MEXC-APIKEY: $apiKey",
+        "X-MEXC-SIGNATURE: $signature",
+        "X-MEXC-TIMESTAMP: $timestamp",
+    ];
+    
+    $ch = curl_init($baseUrl . $requestPath);
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     
-    return curl_exec($ch);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    $result = json_decode($response, true);
+    
+    if ($httpCode === 200 && isset($result['id'])) {
+        return ['ok' => true, 'txid' => $result['id'], 'withdrawId' => $result['id']];
+    } else {
+        return ['ok' => false, 'error' => $result['msg'] ?? 'Withdrawal failed', 'response' => $result];
+    }
+}
+
+// Check MEXC withdrawal status
+function checkMexcWithdrawal($withdrawId) {
+    $config = getMexcConfig();
+    $apiKey = $config['api_key'];
+    $apiSecret = $config['api_secret'];
+    $baseUrl = $config['base_url'];
+    
+    if (empty($apiKey) || empty($apiSecret)) {
+        return ['ok' => false, 'error' => 'MEXC API not configured'];
+    }
+    
+    $method = 'GET';
+    $requestPath = '/api/v3/capital/withdraw/history?' . http_build_query(['withdrawId' => $withdrawId]);
+    
+    $timestamp = time() * 1000;
+    $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath);
+    
+    $headers = [
+        "X-MEXC-APIKEY: $apiKey",
+        "X-MEXC-SIGNATURE: $signature",
+        "X-MEXC-TIMESTAMP: $timestamp",
+    ];
+    
+    $ch = curl_init($baseUrl . $requestPath);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    return json_decode($response, true);
+}
+
+// Get MEXC wallet balance
+function getMexcBalance() {
+    $config = getMexcConfig();
+    $apiKey = $config['api_key'];
+    $apiSecret = $config['api_secret'];
+    $baseUrl = $config['base_url'];
+    
+    if (empty($apiKey) || empty($apiSecret)) {
+        return 0;
+    }
+    
+    $method = 'GET';
+    $requestPath = '/api/v3/account/balance';
+    
+    $timestamp = time() * 1000;
+    $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath);
+    
+    $headers = [
+        "X-MEXC-APIKEY: $apiKey",
+        "X-MEXC-SIGNATURE: $signature",
+        "X-MEXC-TIMESTAMP: $timestamp",
+    ];
+    
+    $ch = curl_init($baseUrl . $requestPath);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    $data = json_decode($response, true);
+    
+    if (!empty($data['balances'])) {
+        foreach ($data['balances'] as $balance) {
+            if ($balance['asset'] === 'USDT') {
+                return (float) $balance['free'];
+            }
+        }
+    }
+    
+    return 0;
 }
 
 function calculateFees($amount, $networkFee, $depositFeePercent) {
@@ -376,6 +502,58 @@ function processMessage($message) {
     }
 }
 
+// Execute automatic withdrawal via MEXC
+function executeWithdrawal($withdrawalId, $telegramUserId, $walletAddress, $amount, $chatId) {
+    global $capsule;
+    
+    // Get wallet address from settings (where to withdraw TO - client's wallet)
+    $fromWallet = getSetting('wallet_address', '');
+    
+    if (empty($fromWallet)) {
+        return ['ok' => false, 'error' => 'No wallet configured'];
+    }
+    
+    // Execute withdrawal via MEXC
+    $result = withdrawViaMexc($walletAddress, $amount);
+    
+    if ($result['ok']) {
+        // Update withdrawal status
+        $capsule->table('withdrawals')
+            ->where('id', $withdrawalId)
+            ->update([
+                'status' => 'processing',
+                'tx_hash' => $result['txid'] ?? '',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+        
+        // Notify user
+        $msg = "🔄 <b>جاري التحويل...</b>\n\n";
+        $msg .= "💰 المبلغ: $amount USDT\n";
+        $msg .= "📍 إلى العنوان: <code>$walletAddress</code>\n";
+        $msg .= "🔗 TX: <code>{$result['txid']}</code>";
+        
+        sendMessage($chatId, $msg);
+        
+        return ['ok' => true, 'txid' => $result['txid']];
+    } else {
+        // Update status to failed
+        $capsule->table('withdrawals')
+            ->where('id', $withdrawalId)
+            ->update([
+                'status' => 'failed',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+        
+        // Notify admin
+        $adminId = getSetting('admin_telegram_id', '');
+        if ($adminId) {
+            sendMessage($adminId, "❌ فشل التحويل: " . ($result['error'] ?? 'Unknown error'));
+        }
+        
+        return $result;
+    }
+}
+
 function processCallback($callback) {
     $chatId = $callback['message']['chat']['id'];
     $userId = (string) $callback['from']['id'];
@@ -412,18 +590,32 @@ function processCallback($callback) {
         $msg .= "📍 العنوان: <code>$wallet</code>\n";
         $msg .= "📊 الإجمالي المخصوم: {$calc['total_deducted']} USDT\n\n";
         $msg .= "⏳ الحالة: في الانتظار\n\n";
-        $msg .= "🔔 You will be notified once processed.";
+        $msg .= "🔔 جاري التحويل تلقائياً...";
         
-        sendMessage($chatId, $msg, mainMenuKeyboard());
+        sendMessage($chatId, $msg);
+        
+        // Execute automatic withdrawal via MEXC
+        $withdrawResult = executeWithdrawal($id, $userId, $wallet, $amount, $chatId);
+        
+        if (!$withdrawResult['ok']) {
+            $msg = "❌ <b>فشل التحويل!</b>\n\n";
+            $msg .= "السبب: " . ($withdrawResult['error'] ?? 'خطأ غير معروف');
+            $msg .= "\n\nسيتم إشعارك لاحقاً.";
+            sendMessage($chatId, $msg, mainMenuKeyboard());
+        }
         
         $adminId = getSetting('admin_telegram_id', '');
         if ($adminId) {
-            $adminMsg = "🔔 <b>New Withdrawal!</b>\n\n";
+            $statusIcon = $withdrawResult['ok'] ? '✅' : '❌';
+            $adminMsg = "$statusIcon <b>New Withdrawal!</b>\n\n";
             $adminMsg .= "👤 User: $userId\n";
             $adminMsg .= "💰 Amount: $amount USDT\n";
             $adminMsg .= "📍 Wallet: <code>$wallet</code>\n";
             $adminMsg .= "📊 Total: {$calc['total_deducted']} USDT\n";
             $adminMsg .= "🆔 Withdrawal ID: #$id";
+            if ($withdrawResult['ok']) {
+                $adminMsg .= "\n🔗 TX: <code>{$withdrawResult['txid']}</code>";
+            }
             
             sendMessage($adminId, $adminMsg);
         }
