@@ -8,24 +8,21 @@
  */
 
 use Dotenv\Dotenv;
+use Illuminate\Database\Capsule\Manager as Capsule;
 
 require __DIR__ . '/../vendor/autoload.php';
 
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->load();
 
-$databasePath = __DIR__ . '/../database/database.sqlite';
+// Setup Laravel Eloquent with MySQL
+$capsule = new Capsule;
 
-if (!file_exists($databasePath)) {
-    die("Database not found. Please run migrations.\n");
-}
+$dbConfig = require __DIR__ . '/../config/database.php';
 
-try {
-    $pdo = new PDO("sqlite:$databasePath");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage() . "\n");
-}
+$capsule->addConnection($dbConfig['connections']['mysql']);
+$capsule->setAsGlobal();
+$capsule->bootEloquent();
 
 $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: '';
 $apiUrl = "https://api.telegram.org/bot$botToken";
@@ -34,17 +31,17 @@ if (empty($botToken)) {
     die("Please set TELEGRAM_BOT_TOKEN in .env file\n");
 }
 
-function getSetting($pdo, $key, $default = '') {
-    $stmt = $pdo->prepare("SELECT value FROM settings WHERE key = ?");
-    $stmt->execute([$key]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $result ? $result['value'] : $default;
+use Illuminate\Support\Facades\DB;
+
+function getSetting($key, $default = '') {
+    $result = DB::table('settings')->where('key', $key)->first();
+    return $result ? $result->value : $default;
 }
 
-function getFeeSettings($pdo) {
+function getFeeSettings() {
     return [
-        'network_fee' => (float) getSetting($pdo, 'network_fee', 1),
-        'deposit_fee_percent' => (float) getSetting($pdo, 'deposit_fee_percent', 4),
+        'network_fee' => (float) getSetting('network_fee', 1),
+        'deposit_fee_percent' => (float) getSetting('deposit_fee_percent', 4),
     ];
 }
 
@@ -84,38 +81,33 @@ function calculateFees($amount, $networkFee, $depositFeePercent) {
     ];
 }
 
-function saveWithdrawal($pdo, $userId, $walletAddress, $amount, $networkFee, $depositFeePercent, $totalDeducted) {
-    $stmt = $pdo->prepare("
-        INSERT INTO withdrawals 
-        (telegram_user_id, wallet_address, amount, network_fee, deposit_fee_percent, total_deducted, network, currency, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'TRC20', 'USDT', 'pending', datetime('now'), datetime('now'))
-    ");
-    
-    $stmt->execute([
-        $userId,
-        $walletAddress,
-        $amount,
-        $networkFee,
-        $depositFeePercent,
-        $totalDeducted
+function saveWithdrawal($userId, $walletAddress, $amount, $networkFee, $depositFeePercent, $totalDeducted) {
+    return DB::table('withdrawals')->insertGetId([
+        'telegram_user_id' => $userId,
+        'wallet_address' => $walletAddress,
+        'amount' => $amount,
+        'network_fee' => $networkFee,
+        'deposit_fee_percent' => $depositFeePercent,
+        'total_deducted' => $totalDeducted,
+        'network' => 'TRC20',
+        'currency' => 'USDT',
+        'status' => 'pending',
+        'created_at' => now(),
+        'updated_at' => now(),
     ]);
-    
-    return $pdo->lastInsertId();
 }
 
-function getUserWithdrawals($pdo, $userId, $limit = 5) {
-    $stmt = $pdo->prepare("
-        SELECT * FROM withdrawals 
-        WHERE telegram_user_id = ?
-        ORDER BY created_at DESC
-        LIMIT ?
-    ");
-    $stmt->execute([$userId, $limit]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+function getUserWithdrawals($userId, $limit = 5) {
+    return DB::table('withdrawals')
+        ->where('telegram_user_id', $userId)
+        ->orderBy('created_at', 'desc')
+        ->limit($limit)
+        ->get()
+        ->toArray();
 }
 
-function getWalletAddress($pdo) {
-    return getSetting($pdo, 'wallet_address', '');
+function getWalletAddress() {
+    return getSetting('wallet_address', '');
 }
 
 function mainMenuKeyboard() {
@@ -128,13 +120,13 @@ function mainMenuKeyboard() {
     ];
 }
 
-function processMessage($message, $pdo) {
+function processMessage($message) {
     $chatId = $message['chat']['id'];
     $userId = (string) $message['from']['id'];
     $text = $message['text'] ?? '';
     $firstName = $message['from']['first_name'] ?? 'User';
     
-    $allowedUserId = getSetting($pdo, 'allowed_user_id', '');
+    $allowedUserId = getSetting('allowed_user_id', '');
     
     if ($allowedUserId && $userId !== $allowedUserId) {
         sendMessage($chatId, "⛔ عذراً، ليس لديك صلاحية استخدام هذا البوت.");
@@ -152,7 +144,7 @@ function processMessage($message, $pdo) {
     }
     
     if ($text === '💰 سحب USDT' || $text === '/withdraw') {
-        $walletAddress = getWalletAddress($pdo);
+        $walletAddress = getWalletAddress();
         
         if (empty($walletAddress)) {
             sendMessage($chatId, "⚠️ لم يتم إعداد عنوان المحفظة. يرجى التواصل مع المسؤول.");
@@ -172,7 +164,7 @@ function processMessage($message, $pdo) {
     }
     
     if ($text === '📊 سجل السحوبات' || $text === '/history') {
-        $withdrawals = getUserWithdrawals($pdo, $userId);
+        $withdrawals = getUserWithdrawals($userId);
         
         if (empty($withdrawals)) {
             sendMessage($chatId, "📭 لا توجد سحبات سابقة.");
@@ -182,14 +174,14 @@ function processMessage($message, $pdo) {
         $msg = "📊 <b>سجل السحوبات</b>\n\n";
         
         foreach ($withdrawals as $w) {
-            $status = $w['status'] === 'completed' ? '✅' : ($w['status'] === 'rejected' ? '❌' : '⏳');
+            $status = $w->status === 'completed' ? '✅' : ($w->status === 'rejected' ? '❌' : '⏳');
             $msg .= "━━━━━━━━━━━━━━━━\n";
-            $msg .= "💰 المبلغ: {$w['amount']} USDT\n";
-            $msg .= "📍 العنوان: <code>" . substr($w['wallet_address'], 0, 10) . "...</code>\n";
-            $msg .= "📊 الحالة: {$status} " . ucfirst($w['status']) . "\n";
-            $msg .= "📅 التاريخ: {$w['created_at']}\n";
-            if ($w['tx_hash']) {
-                $msg .= "🔗 TX: <code>" . substr($w['tx_hash'], 0, 10) . "...</code>\n";
+            $msg .= "💰 المبلغ: {$w->amount} USDT\n";
+            $msg .= "📍 العنوان: <code>" . substr($w->wallet_address, 0, 10) . "...</code>\n";
+            $msg .= "📊 الحالة: {$status} " . ucfirst($w->status) . "\n";
+            $msg .= "📅 التاريخ: {$w->created_at}\n";
+            if ($w->tx_hash) {
+                $msg .= "🔗 TX: <code>" . substr($w->tx_hash, 0, 10) . "...</code>\n";
             }
         }
         
@@ -229,7 +221,7 @@ function processMessage($message, $pdo) {
             ];
             file_put_contents($stateFile, json_encode($state));
             
-            $fees = getFeeSettings($pdo);
+            $fees = getFeeSettings();
             
             $msg = "✅ تم حفظ العنوان: <code>$text</code>\n\n";
             $msg .= "💰 أدخل المبلغ المراد سحبه (USDT):\n\n";
@@ -254,7 +246,7 @@ function processMessage($message, $pdo) {
                 return;
             }
             
-            $fees = getFeeSettings($pdo);
+            $fees = getFeeSettings();
             $calc = calculateFees($amount, $fees['network_fee'], $fees['deposit_fee_percent']);
             
             $state['amount'] = $amount;
@@ -287,7 +279,7 @@ function processMessage($message, $pdo) {
     }
 }
 
-function processCallback($callback, $pdo) {
+function processCallback($callback) {
     $chatId = $callback['message']['chat']['id'];
     $userId = (string) $callback['from']['id'];
     $data = $callback['data'];
@@ -307,13 +299,13 @@ function processCallback($callback, $pdo) {
             return;
         }
         
-        $fees = getFeeSettings($pdo);
+        $fees = getFeeSettings();
         $amount = $state['amount'];
         $wallet = $state['wallet'];
         
         $calc = calculateFees($amount, $fees['network_fee'], $fees['deposit_fee_percent']);
         
-        $id = saveWithdrawal($pdo, $userId, $wallet, $amount, $fees['network_fee'], $fees['deposit_fee_percent'], $calc['total_deducted']);
+        $id = saveWithdrawal($userId, $wallet, $amount, $fees['network_fee'], $fees['deposit_fee_percent'], $calc['total_deducted']);
         
         unlink($stateFile);
         
@@ -327,7 +319,7 @@ function processCallback($callback, $pdo) {
         
         sendMessage($chatId, $msg, mainMenuKeyboard());
         
-        $adminId = getSetting($pdo, 'admin_telegram_id', '');
+        $adminId = getSetting('admin_telegram_id', '');
         if ($adminId) {
             $adminMsg = "🔔 <b>New Withdrawal!</b>\n\n";
             $adminMsg .= "👤 User: $userId\n";
@@ -367,9 +359,9 @@ while (true) {
                 $offset = $update['update_id'] + 1;
                 
                 if (isset($update['callback_query'])) {
-                    processCallback($update['callback_query'], $pdo);
+                    processCallback($update['callback_query']);
                 } elseif (isset($update['message'])) {
-                    processMessage($update['message'], $pdo);
+                    processMessage($update['message']);
                 }
             }
         }
