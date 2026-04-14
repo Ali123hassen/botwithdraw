@@ -151,12 +151,17 @@ function mainMenuKeyboard() {
 }
 
 function processMessage($message) {
+    echo "Processing message...\n";
+    
     $chatId = $message['chat']['id'];
     $userId = (string) $message['from']['id'];
     $text = $message['text'] ?? '';
     $firstName = $message['from']['first_name'] ?? 'User';
     
+    echo "Chat ID: $chatId, User ID: $userId, Text: $text\n";
+    
     $allowedUserId = getSetting('allowed_user_id', '');
+    echo "Allowed User: $allowedUserId\n";
     
     if ($allowedUserId && $userId !== $allowedUserId) {
         sendMessage($chatId, "⛔ عذراً، ليس لديك صلاحية استخدام هذا البوت.");
@@ -164,6 +169,7 @@ function processMessage($message) {
     }
     
     if ($text === '/start' || $text === 'الرئيسية') {
+        echo "Sending welcome message...\n";
         $welcomeMsg = "🎉 مرحباً بك في بوت سحب USDT!\n\n";
         $welcomeMsg .= "👤 المستخدم: $firstName\n";
         $welcomeMsg .= "🆔 ID: $userId\n\n";
