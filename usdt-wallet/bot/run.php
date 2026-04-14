@@ -97,7 +97,6 @@ function sendMessage($chatId, $text, $keyboard = null) {
     
     return curl_exec($ch);
 }
-}
 
 function calculateFees($amount, $networkFee, $depositFeePercent) {
     $depositFee = $amount * ($depositFeePercent / 100);
@@ -146,8 +145,8 @@ function getWalletAddress() {
 function mainMenuKeyboard() {
     return [
         'keyboard' => [
-            [['text' => '💰 سحب USDT'], ['text' => '📊 سجل السحوبات']],
-            [['text' => '❓ مساعدة']],
+            [['text' => '💰 سحب USDT'], ['text' => '🏧 إيداع USDT']],
+            [['text' => '📊 سجل السحوبات'], ['text' => '❓ مساعدة']],
         ],
         'resize_keyboard' => true,
     ];
@@ -190,7 +189,31 @@ function processMessage($message) {
         $msg .= "- الشبكة: TRC20\n\n";
         $msg .= "📝 أدخل عنوان محفظتك (TRC20):";
         
-        file_put_contents(__DIR__ . "/state_$userId.json", json_encode(['step' => 'wallet']));
+        file_put_contents(__DIR__ . "/state_$userId.json", json_encode(['step' => 'withdraw_wallet']));
+        
+        sendMessage($chatId, $msg);
+        return;
+    }
+    
+    // إيداع USDT
+    if ($text === '🏧 إيداع USDT' || $text === '/deposit') {
+        $walletAddress = getWalletAddress();
+        
+        if (empty($walletAddress)) {
+            sendMessage($chatId, "⚠️ لم يتم إعداد عنوان المحفظة. يرجى التواصل مع المسؤول.");
+            return;
+        }
+        
+        $msg = "🏧 <b>إيداع USDT</b>\n\n";
+        $msg .= "📋 للعملية:\n";
+        $msg .= "- العملة: USDT\n";
+        $msg .= "- الشبكة: TRC20\n\n";
+        $msg .= "🎯 أرسل USDT على العنوان التالي:\n\n";
+        $msg .= "<code>$walletAddress</code>\n\n";
+        $msg .= "⚠️ تأكد من إرسال USDT TRC20 فقط!\n";
+        $msg .= "💡 بعد الإرسال، أرسل المبلغ المراد إيداعه للتحقق.";
+        
+        file_put_contents(__DIR__ . "/state_$userId.json", json_encode(['step' => 'deposit_amount', 'wallet' => $walletAddress]));
         
         sendMessage($chatId, $msg);
         return;
@@ -242,14 +265,14 @@ function processMessage($message) {
     if (file_exists($stateFile)) {
         $state = json_decode(file_get_contents($stateFile), true);
         
-        if ($state['step'] === 'wallet') {
+        if ($state['step'] === 'withdraw_wallet') {
             if (strlen($text) < 26 || substr($text, 0, 1) !== 'T') {
                 sendMessage($chatId, "❌ عنوان محفظة TRC20 غير صالح. يجب أن يبدأ بـ 'T' ويكون 26 حرفاً على الأقل.");
                 return;
             }
             
             $state = [
-                'step' => 'amount',
+                'step' => 'withdraw_amount',
                 'wallet' => $text,
             ];
             file_put_contents($stateFile, json_encode($state));
@@ -266,7 +289,48 @@ function processMessage($message) {
             return;
         }
         
-        if ($state['step'] === 'amount') {
+        // إيداع - إدخال المبلغ للتحقق
+        if ($state['step'] === 'deposit_amount') {
+            $amount = (float) $text;
+            
+            if ($amount <= 0) {
+                sendMessage($chatId, "❌ المبلغ يجب أن يكون أكبر من صفر.");
+                return;
+            }
+            
+            if ($amount < 1) {
+                sendMessage($chatId, "❌ الحد الأدنى للإيداع هو 1 USDT.");
+                return;
+            }
+            
+            // حفظ الإيداع
+            $wallet = $state['wallet'];
+            
+            $msg = "✅ <b>تم تسجيل الإيداع!</b>\n\n";
+            $msg .= "💰 المبلغ: $amount USDT\n";
+            $msg .= "📍 العنوان: <code>$wallet</code>\n";
+            $msg .= "📅 التاريخ: " . date('Y-m-d H:i:s') . "\n\n";
+            $msg .= "⏳ في انتظار التحويل...\n\n";
+            $msg .= "💡 سيتم إشعارك عند اكتمال التحقق.";
+            
+            // إشعار الأدمن
+            $adminId = getSetting('admin_telegram_id', '');
+            if ($adminId) {
+                $adminMsg = "🏧 <b>إيداع USDT جديد!</b>\n\n";
+                $adminMsg .= "👤 المستخدم: $userId\n";
+                $adminMsg .= "💰 المبلغ: $amount USDT\n";
+                $adminMsg .= "📍 العنوان: <code>$wallet</code>\n";
+                $adminMsg .= "🆔 Chat ID: $chatId";
+                
+                sendMessage($adminId, $adminMsg);
+            }
+            
+            sendMessage($chatId, $msg, mainMenuKeyboard());
+            @unlink($stateFile);
+            return;
+        }
+        
+        if ($state['step'] === 'withdraw_amount') {
             $amount = (float) $text;
             
             if ($amount <= 0) {
