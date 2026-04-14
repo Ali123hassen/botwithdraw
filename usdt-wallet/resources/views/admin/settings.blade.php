@@ -58,6 +58,28 @@
                         <small class="text-muted">Telegram user ID allowed to use the bot</small>
                     </div>
 
+                    <div class="mb-4 mt-4">
+                        <h5 class="border-bottom pb-2">MEXC API Settings</h5>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">MEXC API Key</label>
+                        <input type="text" name="mexc_api_key" class="form-control" value="{{ $settings['mexc_api_key'] }}">
+                        <small class="text-muted">API Key from MEXC (for automatic withdrawals)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">MEXC API Secret</label>
+                        <input type="password" name="mexc_api_secret" class="form-control" value="{{ $settings['mexc_api_secret'] }}">
+                        <small class="text-muted">API Secret from MEXC</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Admin Telegram ID</label>
+                        <input type="text" name="admin_telegram_id" class="form-control" value="{{ $settings['admin_telegram_id'] }}">
+                        <small class="text-muted">Your Telegram ID to receive notifications</small>
+                    </div>
+
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Save Settings
                     </button>

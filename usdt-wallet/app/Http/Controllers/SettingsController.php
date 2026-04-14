@@ -15,6 +15,9 @@ class SettingsController extends Controller
             'wallet_address' => Setting::get('wallet_address', ''),
             'bot_token' => Setting::get('bot_token', ''),
             'allowed_user_id' => Setting::get('allowed_user_id', ''),
+            'mexc_api_key' => Setting::get('mexc_api_key', ''),
+            'mexc_api_secret' => Setting::get('mexc_api_secret', ''),
+            'admin_telegram_id' => Setting::get('admin_telegram_id', ''),
         ];
         
         return view('admin.settings', compact('settings'));
@@ -28,6 +31,9 @@ class SettingsController extends Controller
             'wallet_address' => 'nullable|string',
             'bot_token' => 'nullable|string',
             'allowed_user_id' => 'nullable|string',
+            'mexc_api_key' => 'nullable|string',
+            'mexc_api_secret' => 'nullable|string',
+            'admin_telegram_id' => 'nullable|string',
         ]);
 
         Setting::set('network_fee', $request->network_fee);
@@ -43,6 +49,18 @@ class SettingsController extends Controller
         
         if ($request->allowed_user_id) {
             Setting::set('allowed_user_id', $request->allowed_user_id);
+        }
+        
+        if ($request->mexc_api_key) {
+            Setting::set('mexc_api_key', $request->mexc_api_key);
+        }
+        
+        if ($request->mexc_api_secret) {
+            Setting::set('mexc_api_secret', $request->mexc_api_secret);
+        }
+        
+        if ($request->admin_telegram_id) {
+            Setting::set('admin_telegram_id', $request->admin_telegram_id);
         }
 
         return redirect()->back()->with('success', 'Settings updated successfully!');
