@@ -66,6 +66,31 @@ function getSetting($key, $default = '') {
     return $result ? $result->value : $default;
 }
 
+function sendMessage($chatId, $text, $keyboard = null) {
+    global $apiUrl;
+    
+    $data = [
+        'chat_id' => $chatId,
+        'text' => $text,
+        'parse_mode' => 'HTML',
+    ];
+    
+    if ($keyboard) {
+        $data['reply_markup'] = json_encode($keyboard);
+    }
+    
+    $ch = curl_init($apiUrl . '/sendMessage');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+    
+    return curl_exec($ch);
+}
+
 function getFeeSettings() {
     return [
         'network_fee' => (float) getSetting('network_fee', 1),
