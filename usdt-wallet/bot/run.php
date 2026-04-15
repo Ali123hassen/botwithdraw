@@ -250,8 +250,11 @@ function getMexcBalance() {
 }
 
 function calculateFees($amount, $networkFee, $depositFeePercent) {
-    $depositFee = $amount * ($depositFeePercent / 100);
-    $totalDeducted = $amount + $networkFee + $depositFee;
+    // Fees are deducted FROM the requested amount
+    // Client receives: amount - networkFee - depositFee
+    $depositFee = ($amount - $networkFee) * ($depositFeePercent / 100);
+    $totalDeducted = $amount;
+    $clientReceives = $amount - $networkFee - $depositFee;
     
     return [
         'amount' => $amount,
@@ -259,6 +262,7 @@ function calculateFees($amount, $networkFee, $depositFeePercent) {
         'deposit_fee_percent' => $depositFeePercent,
         'deposit_fee' => $depositFee,
         'total_deducted' => $totalDeducted,
+        'client_receives' => max(0, $clientReceives),
     ];
 }
 
@@ -504,14 +508,14 @@ function processMessage($message) {
             $msg = "📋 <b>تفاصيل السحب</b>\n\n";
             $msg .= "━━━━━━━━━━━━━━━━\n";
             $msg .= "📍 العنوان: <code>{$state['wallet']}</code>\n";
-            $msg .= "💰 المبلغ: {$amount} USDT\n";
+            $msg .= "💰 المبلغ المطلوب: {$amount} USDT\n";
             $msg .= "🔗 الشبكة: TRC20\n";
             $msg .= "━━━━━━━━━━━━━━━━\n";
             $msg .= "💵 العمولات:\n";
             $msg .= "• Network Fee: {$calc['network_fee']} USDT\n";
             $msg .= "• Deposit Fee ({$calc['deposit_fee_percent']}%): {$calc['deposit_fee']} USDT\n";
             $msg .= "━━━━━━━━━━━━━━━━\n";
-            $msg .= "📊 <b>الإجمالي المخصوم: {$calc['total_deducted']} USDT</b>\n";
+            $msg .= "✅ <b>المبلغ الذي سيستلمه العميل: {$calc['client_receives']} USDT</b>\n";
             $msg .= "━━━━━━━━━━━━━━━━\n\n";
             $msg .= "✅ Confirm the withdrawal?";
             
@@ -605,22 +609,24 @@ function processCallback($callback) {
         
         $calc = calculateFees($amount, $fees['network_fee'], $fees['deposit_fee_percent']);
         
-        $id = saveWithdrawal($userId, $wallet, $amount, $fees['network_fee'], $fees['deposit_fee_percent'], $calc['total_deducted']);
+        // Store the amount that will be sent (what client receives)
+        $id = saveWithdrawal($userId, $wallet, $amount, $fees['network_fee'], $fees['deposit_fee_percent'], $calc['client_receives']);
         
         unlink($stateFile);
         
         $msg = "✅ <b>تم تقديم طلب السحب بنجاح!</b>\n\n";
         $msg .= "📋 رقم الطلب: #$id\n";
-        $msg .= "💰 المبلغ: $amount USDT\n";
+        $msg .= "💰 المبلغ المطلوب: $amount USDT\n";
         $msg .= "📍 العنوان: <code>$wallet</code>\n";
-        $msg .= "📊 الإجمالي المخصوم: {$calc['total_deducted']} USDT\n\n";
+        $msg .= "💵 العمولات: {$calc['network_fee']} + {$calc['deposit_fee']} = " . ($calc['network_fee'] + $calc['deposit_fee']) . " USDT\n";
+        $msg .= "✅ <b>المبلغ الذي سيستلمه العميل: {$calc['client_receives']} USDT</b>\n\n";
         $msg .= "⏳ الحالة: في الانتظار\n\n";
         $msg .= "🔔 جاري التحويل تلقائياً...";
         
         sendMessage($chatId, $msg);
         
-        // Execute automatic withdrawal via MEXC
-        $withdrawResult = executeWithdrawal($id, $userId, $wallet, $amount, $chatId);
+        // Execute automatic withdrawal - send the amount client will receive
+        $withdrawResult = executeWithdrawal($id, $userId, $wallet, $calc['client_receives'], $chatId);
         
         if (!$withdrawResult['ok']) {
             $msg = "❌ <b>فشل التحويل!</b>\n\n";
@@ -634,9 +640,10 @@ function processCallback($callback) {
             $statusIcon = $withdrawResult['ok'] ? '✅' : '❌';
             $adminMsg = "$statusIcon <b>New Withdrawal!</b>\n\n";
             $adminMsg .= "👤 User: $userId\n";
-            $adminMsg .= "💰 Amount: $amount USDT\n";
+            $adminMsg .= "💰 Requested: $amount USDT\n";
+            $adminMsg .= "💵 Fees: " . ($calc['network_fee'] + $calc['deposit_fee']) . " USDT\n";
+            $adminMsg .= "📤 Sent to client: {$calc['client_receives']} USDT\n";
             $adminMsg .= "📍 Wallet: <code>$wallet</code>\n";
-            $adminMsg .= "📊 Total: {$calc['total_deducted']} USDT\n";
             $adminMsg .= "🆔 Withdrawal ID: #$id";
             if ($withdrawResult['ok']) {
                 $adminMsg .= "\n🔗 TX: <code>{$withdrawResult['txid']}</code>";
