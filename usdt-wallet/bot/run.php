@@ -139,7 +139,7 @@ function withdrawViaMexc($toAddress, $amount) {
         'address' => $toAddress,
         'amount' => (string) $amount,
         'coin' => 'USDT',
-        'network' => 'TRC20',  // 'network' not 'netWork'
+        'network' => 'TRX',  // TRX not TRC20
         'timestamp' => $timestamp,
         'recvWindow' => '5000',
     ];
