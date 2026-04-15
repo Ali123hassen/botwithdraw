@@ -3,20 +3,26 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WithdrawalController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\AuthController;
 
 Route::get('/', function () {
     return redirect()->route('admin.withdrawals');
 });
 
-// Admin Routes
-Route::prefix('admin')->name('admin.')->group(function () {
+// Login Routes
+Route::get('login', [AuthController::class, 'showLoginForm'])->name('admin.login');
+Route::post('login', [AuthController::class, 'login'])->name('admin.login');
+Route::post('logout', [AuthController::class, 'logout'])->name('admin.logout');
+
+// Admin Routes - Protected
+Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     Route::get('withdrawals', [WithdrawalController::class, 'index'])->name('withdrawals');
     Route::post('withdrawals/update/{id}', [WithdrawalController::class, 'updateStatus'])->name('withdrawals.update');
     Route::delete('withdrawals/{id}', [WithdrawalController::class, 'destroy'])->name('withdrawals.destroy');
-    
+
     Route::get('settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('settings', [SettingsController::class, 'update'])->name('settings.update');
-    
+
     // API Routes
     Route::get('withdrawals/api', [WithdrawalController::class, 'index'])->name('withdrawals.api');
     Route::post('withdrawals', [WithdrawalController::class, 'store'])->name('withdrawals.store');
