@@ -9,10 +9,10 @@ Route::get('/', function () {
     return redirect()->route('admin.withdrawals');
 });
 
-// Login Routes
-Route::get('login', [AuthController::class, 'showLoginForm'])->name('admin.login');
-Route::post('login', [AuthController::class, 'login'])->name('admin.login');
-Route::post('logout', [AuthController::class, 'logout'])->name('admin.logout');
+// Login Routes - use 'login' name for auth redirect
+Route::get('login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('login', [AuthController::class, 'login'])->name('login');
+Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
 // Admin Routes - Protected
 Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
