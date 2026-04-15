@@ -143,16 +143,23 @@ function withdrawViaMexc($toAddress, $amount) {
     $timestamp = time() * 1000;
     $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath, $body);
     
-    // Debug logging
-    error_log("MEXC Request - Timestamp: $timestamp");
-    error_log("MEXC Request - Signature: " . substr($signature, 0, 20) . "...");
-    
+    // Debug: Log full signature and all headers
+    error_log("MEXC Full Signature: $signature");
+    error_log("MEXC API Key: $apiKey");
+    error_log("MEXC Timestamp: $timestamp");
+    error_log("MEXC Method: $method");
+    error_log("MEXC RequestPath: $requestPath");
+    error_log("MEXC Body: $body");
+
     $headers = [
         'Content-Type: application/json',
         'X-MEXC-APIKEY: ' . $apiKey,
         'X-MEXC-SIGNATURE: ' . $signature,
         'X-MEXC-TIMESTAMP: ' . $timestamp,
     ];
+    
+    // Debug: Log headers
+    error_log("MEXC Headers: " . json_encode($headers));
     
     $url = $baseUrl . $requestPath;
     error_log("MEXC Request URL: $url");
