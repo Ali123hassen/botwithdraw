@@ -138,9 +138,10 @@ function withdrawViaMexc($toAddress, $amount) {
     $params = [
         'address' => $toAddress,
         'amount' => (string) $amount,
-        'coin' => 'usdt',  // lowercase
+        'coin' => 'USDT',  // uppercase
         'netWork' => 'TRC20',
         'timestamp' => $timestamp,
+        'recvWindow' => '5000',  // add recvWindow
     ];
     
     // Sort by keys alphabetically (required for signature)
