@@ -37,6 +37,18 @@
         .status-pending { color: #f39c12; }
         .status-completed { color: #27ae60; }
         .status-rejected { color: #e74c3c; }
+        .logout-btn {
+            background: #e74c3c;
+            border: none;
+            width: 100%;
+            text-align: right;
+            padding: 12px 20px;
+            color: #ecf0f1 !important;
+            cursor: pointer;
+        }
+        .logout-btn:hover {
+            background: #c0392b !important;
+        }
     </style>
 </head>
 <body>
@@ -53,6 +65,12 @@
                     <a href="{{ route('admin.settings') }}" class="{{ Request::routeIs('admin.settings') ? 'active' : '' }}">
                         <i class="fas fa-cog me-2"></i> Settings
                     </a>
+                    <form action="{{ route('logout') }}" method="POST" class="m-0">
+                        @csrf
+                        <button type="submit" class="logout-btn">
+                            <i class="fas fa-sign-out-alt me-2"></i> Logout
+                        </button>
+                    </form>
                 </nav>
             </div>
             <div class="col-md-10 p-4">
