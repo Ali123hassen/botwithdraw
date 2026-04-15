@@ -132,48 +132,37 @@ function withdrawViaMexc($toAddress, $amount) {
     $method = 'POST';
     $requestPath = '/api/v3/capital/withdraw';
     
-    $params = [
+    $timestamp = time() * 1000;
+    
+    // Build query string (signature based on query params, not body!)
+    $queryParams = http_build_query([
         'coin' => 'USDT',
         'address' => $toAddress,
         'amount' => (string) $amount,
-        'network' => 'TRC20',
-    ];
+        'netWork' => 'TRC20',  // Note: netWork not network
+        'timestamp' => $timestamp,
+    ]);
     
-    $body = json_encode($params);
-    $timestamp = time() * 1000;
-    $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath, $body);
+    // Signature based on query string (without the leading ?)
+    $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath . '?' . $queryParams, '');
+    
+    // Full URL with query params
+    $url = $baseUrl . $requestPath . '?' . $queryParams . '&signature=' . $signature;
     
     // Debug: Log full signature and all headers
+    error_log("MEXC Full URL: $url");
     error_log("MEXC Full Signature: $signature");
     error_log("MEXC API Key: $apiKey");
     error_log("MEXC Timestamp: $timestamp");
     error_log("MEXC Method: $method");
     error_log("MEXC RequestPath: $requestPath");
-    error_log("MEXC Body: $body");
-
-    $headers = [
-        'Content-Type: application/json',
-        'X-MEXC-APIKEY: ' . $apiKey,
-        'X-MEXC-SIGNATURE: ' . $signature,
-        'X-MEXC-TIMESTAMP: ' . $timestamp,
-    ];
-    
-    // Debug: Log headers
-    error_log("MEXC Headers: " . json_encode($headers));
-    
-    $url = $baseUrl . $requestPath;
-    error_log("MEXC Request URL: $url");
-    error_log("MEXC Request Body: $body");
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
         'X-MEXC-APIKEY: ' . $apiKey,
-        'X-MEXC-SIGNATURE: ' . $signature,
-        'X-MEXC-TIMESTAMP: ' . $timestamp
     ]);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
