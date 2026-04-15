@@ -26,25 +26,24 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
+        // Only allow existing users to login
         if (!$user) {
-            // Create admin user if not exists
-            $user = User::create([
-                'name' => 'Admin',
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-            ]);
-            Auth::login($user);
-            return redirect()->route('admin.withdrawals');
+            return back()->withErrors([
+                'email' => 'Invalid email or password.',
+            ])->withInput();
         }
 
-        if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
-            return redirect()->route('admin.withdrawals');
+        // Verify password
+        if (!Hash::check($request->password, $user->password)) {
+            return back()->withErrors([
+                'email' => 'Invalid email or password.',
+            ])->withInput();
         }
 
-        return back()->withErrors([
-            'email' => 'بيانات تسجيل الدخول غير صحيحة.',
-        ])->withInput();
+        // Login user
+        Auth::login($user);
+        $request->session()->regenerate();
+        return redirect()->route('admin.withdrawals');
     }
 
     public function logout(Request $request)
