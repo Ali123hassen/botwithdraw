@@ -134,28 +134,32 @@ function withdrawViaMexc($toAddress, $amount) {
     
     $timestamp = time() * 1000;
     
-    // Build query string (signature based on query params, not body!)
-    $queryParams = http_build_query([
-        'coin' => 'USDT',
+    // Build query params - sorted alphabetically for signature
+    $params = [
         'address' => $toAddress,
         'amount' => (string) $amount,
-        'netWork' => 'TRC20',  // Note: netWork not network
+        'coin' => 'USDT',
+        'netWork' => 'TRC20',
         'timestamp' => $timestamp,
-    ]);
+    ];
     
-    // Signature based on query string (without the leading ?)
-    $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath . '?' . $queryParams, '');
+    // Sort by keys alphabetically (required for signature)
+    ksort($params);
+    $queryParams = http_build_query($params);
+    
+    // Signature: timestamp + method + requestPath + queryString (without the leading ?)
+    $signatureString = $timestamp . $method . $requestPath . '?' . $queryParams;
+    $signature = strtoupper(hash_hmac('sha256', $signatureString, $apiSecret));
     
     // Full URL with query params
     $url = $baseUrl . $requestPath . '?' . $queryParams . '&signature=' . $signature;
     
     // Debug: Log full signature and all headers
+    error_log("MEXC Signature String: $signatureString");
     error_log("MEXC Full URL: $url");
     error_log("MEXC Full Signature: $signature");
     error_log("MEXC API Key: $apiKey");
     error_log("MEXC Timestamp: $timestamp");
-    error_log("MEXC Method: $method");
-    error_log("MEXC RequestPath: $requestPath");
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_POST, true);
