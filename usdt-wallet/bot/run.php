@@ -145,19 +145,18 @@ function withdrawViaMexc($toAddress, $amount) {
     
     // Sort by keys alphabetically (required for signature)
     ksort($params);
-    $queryParams = http_build_query($params);
+    $queryString = http_build_query($params);
     
-    // Signature: timestamp + method + requestPath + queryString (without the leading ?)
-    $signatureString = $timestamp . $method . $requestPath . '?' . $queryParams;
-    $signature = strtoupper(hash_hmac('sha256', $signatureString, $apiSecret));
+    // Signature: ONLY the query string (no method, no path!) - lowercase
+    $signature = strtolower(hash_hmac('sha256', $queryString, $apiSecret));
     
     // Full URL with query params
-    $url = $baseUrl . $requestPath . '?' . $queryParams . '&signature=' . $signature;
+    $url = $baseUrl . $requestPath . '?' . $queryString . '&signature=' . $signature;
     
     // Debug: Log full signature and all headers
-    error_log("MEXC Signature String: $signatureString");
+    error_log("MEXC Query String: $queryString");
     error_log("MEXC Full URL: $url");
-    error_log("MEXC Full Signature: $signature");
+    error_log("MEXC Full Signature (lowercase): $signature");
     error_log("MEXC API Key: $apiKey");
     error_log("MEXC Timestamp: $timestamp");
 
