@@ -130,7 +130,7 @@ function withdrawViaMexc($toAddress, $amount) {
     }
     
     $method = 'POST';
-    $requestPath = '/api/v3/capital/withdraw';
+    $requestPath = '/api/v3/capital/withdraw/apply';  // Fixed endpoint
     
     $timestamp = time() * 1000;
     
@@ -138,10 +138,10 @@ function withdrawViaMexc($toAddress, $amount) {
     $params = [
         'address' => $toAddress,
         'amount' => (string) $amount,
-        'coin' => 'USDT',  // uppercase
-        'netWork' => 'TRC20',
+        'coin' => 'USDT',
+        'network' => 'TRC20',  // 'network' not 'netWork'
         'timestamp' => $timestamp,
-        'recvWindow' => '5000',  // add recvWindow
+        'recvWindow' => '5000',
     ];
     
     // Sort by keys alphabetically (required for signature)
