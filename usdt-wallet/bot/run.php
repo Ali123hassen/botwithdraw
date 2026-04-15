@@ -169,7 +169,12 @@ function withdrawViaMexc($toAddress, $amount) {
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'X-MEXC-APIKEY: ' . $apiKey,
+        'X-MEXC-SIGNATURE: ' . $signature,
+        'X-MEXC-TIMESTAMP: ' . $timestamp
+    ]);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
