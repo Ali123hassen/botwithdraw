@@ -123,6 +123,9 @@ function withdrawViaMexc($toAddress, $amount) {
     $baseUrl = $config['base_url'];
     
     if (empty($apiKey) || empty($apiSecret)) {
+        // Debug: Log what we got
+        error_log("MEXC Config - API Key: " . ($apiKey ? "SET" : "EMPTY"));
+        error_log("MEXC Config - API Secret: " . ($apiSecret ? "SET" : "EMPTY"));
         return ['ok' => false, 'error' => 'MEXC API not configured'];
     }
     
@@ -140,6 +143,10 @@ function withdrawViaMexc($toAddress, $amount) {
     $timestamp = time() * 1000;
     $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath, $body);
     
+    // Debug logging
+    error_log("MEXC Request - Timestamp: $timestamp");
+    error_log("MEXC Request - Signature: " . substr($signature, 0, 20) . "...");
+    
     $headers = [
         'Content-Type: application/json',
         'X-MEXC-APIKEY: ' . $apiKey,
@@ -147,7 +154,11 @@ function withdrawViaMexc($toAddress, $amount) {
         'X-MEXC-TIMESTAMP: ' . $timestamp,
     ];
     
-    $ch = curl_init($baseUrl . $requestPath);
+    $url = $baseUrl . $requestPath;
+    error_log("MEXC Request URL: $url");
+    error_log("MEXC Request Body: $body");
+
+    $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -158,14 +169,18 @@ function withdrawViaMexc($toAddress, $amount) {
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
     curl_close($ch);
+    
+    // Debug logging
+    error_log("MEXC Response - HTTP: $httpCode, Body: $response, Error: $error");
     
     $result = json_decode($response, true);
     
     if ($httpCode === 200 && isset($result['id'])) {
         return ['ok' => true, 'txid' => $result['id'], 'withdrawId' => $result['id']];
     } else {
-        return ['ok' => false, 'error' => $result['msg'] ?? 'Withdrawal failed', 'response' => $result];
+        return ['ok' => false, 'error' => $result['msg'] ?? 'Withdrawal failed', 'response' => $result, 'http_code' => $httpCode];
     }
 }
 
@@ -177,7 +192,11 @@ function checkMexcWithdrawal($withdrawId) {
     $baseUrl = $config['base_url'];
     
     if (empty($apiKey) || empty($apiSecret)) {
+        error_log('MEXC API Key: ' . $apiKey);
+    error_log('MEXC API Secret: ' . substr($apiSecret, 0, 5) . '...');
+    if (empty($apiKey) || empty($apiSecret)) {
         return ['ok' => false, 'error' => 'MEXC API not configured'];
+    }
     }
     
     $method = 'GET';
