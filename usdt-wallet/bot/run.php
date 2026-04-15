@@ -138,7 +138,7 @@ function withdrawViaMexc($toAddress, $amount) {
     $params = [
         'address' => $toAddress,
         'amount' => (string) $amount,
-        'coin' => 'USDT',
+        'coin' => 'usdt',  // lowercase
         'netWork' => 'TRC20',
         'timestamp' => $timestamp,
     ];
