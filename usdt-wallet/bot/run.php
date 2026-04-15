@@ -142,9 +142,9 @@ function withdrawViaMexc($toAddress, $amount) {
     
     $headers = [
         'Content-Type: application/json',
-        "X-MEXC-APIKEY: $apiKey",
-        "X-MEXC-SIGNATURE: $signature",
-        "X-MEXC-TIMESTAMP: $timestamp",
+        'X-MEXC-APIKEY: ' . $apiKey,
+        'X-MEXC-SIGNATURE: ' . $signature,
+        'X-MEXC-TIMESTAMP: ' . $timestamp,
     ];
     
     $ch = curl_init($baseUrl . $requestPath);
@@ -187,9 +187,9 @@ function checkMexcWithdrawal($withdrawId) {
     $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath);
     
     $headers = [
-        "X-MEXC-APIKEY: $apiKey",
-        "X-MEXC-SIGNATURE: $signature",
-        "X-MEXC-TIMESTAMP: $timestamp",
+        'X-MEXC-APIKEY: ' . $apiKey,
+        'X-MEXC-SIGNATURE: ' . $signature,
+        'X-MEXC-TIMESTAMP: ' . $timestamp,
     ];
     
     $ch = curl_init($baseUrl . $requestPath);
@@ -222,9 +222,9 @@ function getMexcBalance() {
     $signature = generateMexcSignature($apiSecret, $timestamp, $method, $requestPath);
     
     $headers = [
-        "X-MEXC-APIKEY: $apiKey",
-        "X-MEXC-SIGNATURE: $signature",
-        "X-MEXC-TIMESTAMP: $timestamp",
+        'X-MEXC-APIKEY: ' . $apiKey,
+        'X-MEXC-SIGNATURE: ' . $signature,
+        'X-MEXC-TIMESTAMP: ' . $timestamp,
     ];
     
     $ch = curl_init($baseUrl . $requestPath);
