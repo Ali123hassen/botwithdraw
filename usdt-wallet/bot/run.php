@@ -130,16 +130,17 @@ function withdrawViaMexc($toAddress, $amount) {
     }
     
     $method = 'POST';
-    $requestPath = '/api/v3/capital/withdraw/apply';  // Fixed endpoint
+    $requestPath = '/api/v3/capital/withdraw';  // NEW endpoint (not /apply)
     
     $timestamp = time() * 1000;
     
     // Build query params - sorted alphabetically for signature
+    // Using netWork (capital W) for new endpoint
     $params = [
         'address' => $toAddress,
         'amount' => (string) $amount,
-        'coin' => 'usdt',  // lowercase
-        'network' => 'TRX',
+        'coin' => 'USDT',
+        'netWork' => 'TRC20',  // netWork with capital W
         'timestamp' => $timestamp,
         'recvWindow' => '5000',
     ];
