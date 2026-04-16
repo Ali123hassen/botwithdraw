@@ -140,7 +140,7 @@ function withdrawViaMexc($toAddress, $amount) {
         'address' => $toAddress,
         'amount' => (string) $amount,
         'coin' => 'USDT',
-        'netWork' => 'TRC20',  // netWork with capital W
+        'netWork' => 'TRX',  // TRX for withdrawal
         'timestamp' => $timestamp,
         'recvWindow' => '5000',
     ];
@@ -300,7 +300,7 @@ function saveWithdrawal($userId, $walletAddress, $amount, $networkFee, $depositF
         'network_fee' => $networkFee,
         'deposit_fee_percent' => $depositFeePercent,
         'total_deducted' => $totalDeducted,
-        'network' => 'TRC20',
+        'network' => 'TRX',
         'currency' => 'USDT',
         'status' => 'pending',
         'created_at' => date('Y-m-d H:i:s'),
@@ -366,8 +366,8 @@ function processMessage($message) {
         $msg = "💸 <b>سحب USDT</b>\n\n";
         $msg .= "📋 للعملية:\n";
         $msg .= "- العملة: USDT\n";
-        $msg .= "- الشبكة: TRC20\n\n";
-        $msg .= "📝 أدخل عنوان محفظتك (TRC20):";
+        $msg .= "- الشبكة: TRX\n\n";
+        $msg .= "📝 أدخل عنوان محفظتك (TRX):";
         
         file_put_contents(__DIR__ . "/state_$userId.json", json_encode(['step' => 'withdraw_wallet']));
         
@@ -387,10 +387,10 @@ function processMessage($message) {
         $msg = "🏧 <b>إيداع USDT</b>\n\n";
         $msg .= "📋 للعملية:\n";
         $msg .= "- العملة: USDT\n";
-        $msg .= "- الشبكة: TRC20\n\n";
+        $msg .= "- الشبكة: TRX\n\n";
         $msg .= "🎯 أرسل USDT على العنوان التالي:\n\n";
         $msg .= "<code>$walletAddress</code>\n\n";
-        $msg .= "⚠️ تأكد من إرسال USDT TRC20 فقط!\n";
+        $msg .= "⚠️ تأكد من إرسال USDT TRX فقط!\n";
         $msg .= "💡 بعد الإرسال، أرسل المبلغ المراد إيداعه للتحقق.";
         
         file_put_contents(__DIR__ . "/state_$userId.json", json_encode(['step' => 'deposit_amount', 'wallet' => $walletAddress]));
@@ -429,7 +429,7 @@ function processMessage($message) {
         $msg = "❓ <b>مساعدة</b>\n\n";
         $msg .= "📌 كيفية السحب:\n";
         $msg .= "1. اضغط على 'سحب USDT'\n";
-        $msg .= "2. أدخل عنوان محفظتك (TRC20)\n";
+        $msg .= "2. أدخل عنوان محفظتك (TRX)\n";
         $msg .= "3. أدخل المبلغ المراد سحبه\n";
         $msg .= "4. Confirm the details and confirm\n\n";
         $msg .= "💳 العمولات:\n";
@@ -447,7 +447,7 @@ function processMessage($message) {
         
         if ($state['step'] === 'withdraw_wallet') {
             if (strlen($text) < 26 || substr($text, 0, 1) !== 'T') {
-                sendMessage($chatId, "❌ عنوان محفظة TRC20 غير صالح. يجب أن يبدأ بـ 'T' ويكون 26 حرفاً على الأقل.");
+                sendMessage($chatId, "❌ عنوان محفظة TRX غير صالح. يجب أن يبدأ بـ 'T' ويكون 26 حرفاً على الأقل.");
                 return;
             }
             
@@ -534,7 +534,7 @@ function processMessage($message) {
             $msg .= "━━━━━━━━━━━━━━━━\n";
             $msg .= "📍 العنوان: <code>{$state['wallet']}</code>\n";
             $msg .= "💰 المبلغ المطلوب: {$amount} USDT\n";
-            $msg .= "🔗 الشبكة: TRC20\n";
+            $msg .= "🔗 الشبكة: TRX\n";
             $msg .= "━━━━━━━━━━━━━━━━\n";
             $msg .= "💵 العمولات:\n";
             $msg .= "• Network Fee: {$calc['network_fee']} USDT\n";
@@ -571,17 +571,17 @@ function executeWithdrawal($withdrawalId, $telegramUserId, $walletAddress, $amou
     $result = withdrawViaMexc($walletAddress, $amount);
     
     if ($result['ok']) {
-        // Update withdrawal status
+        // Update withdrawal status to completed directly (MEXC processes immediately)
         $capsule->table('withdrawals')
             ->where('id', $withdrawalId)
             ->update([
-                'status' => 'processing',
+                'status' => 'completed',
                 'tx_hash' => $result['txid'] ?? '',
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);
         
         // Notify user
-        $msg = "🔄 <b>جاري التحويل...</b>\n\n";
+        $msg = "✅ <b>تم التحويل بنجاح!</b>\n\n";
         $msg .= "💰 المبلغ: $amount USDT\n";
         $msg .= "📍 إلى العنوان: <code>$walletAddress</code>\n";
         $msg .= "🔗 TX: <code>{$result['txid']}</code>";
