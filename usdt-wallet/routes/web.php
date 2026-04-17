@@ -4,6 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WithdrawalController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\TelegramController;
+
+// Telegram Webhook
+Route::post('/webhook', [TelegramController::class, 'handle']);
 
 Route::get('/', function () {
     return redirect()->route('admin.withdrawals');
