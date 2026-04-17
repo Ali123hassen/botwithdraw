@@ -21,7 +21,21 @@ class TelegramController extends Controller
      */
     public function handle(Request $request)
     {
+        // للتشخيص
+        \Log::info('Telegram webhook received', $request->all());
+        
+        // Check if bot token is configured
+        if (empty($this->botToken)) {
+            \Log::error('Telegram bot token is not configured!');
+            return response()->json(['ok' => false, 'error' => 'Bot token not configured']);
+        }
+        
         $update = $request->all();
+        
+        if (empty($update)) {
+            \Log::warning('Empty update received');
+            return response()->json(['ok' => true, 'message' => 'Webhook is working!']);
+        }
         
         if (isset($update['callback_query'])) {
             $this->processCallbackQuery($update['callback_query']);
