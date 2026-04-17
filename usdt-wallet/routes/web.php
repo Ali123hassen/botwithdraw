@@ -9,6 +9,9 @@ use App\Http\Controllers\TelegramController;
 // Telegram Webhook
 Route::post('/webhook', [TelegramController::class, 'handle']);
 
+// Test route (GET) - للاختبار فقط
+Route::get('/webhook', [TelegramController::class, 'test']);
+
 Route::get('/', function () {
     return redirect()->route('admin.withdrawals');
 });

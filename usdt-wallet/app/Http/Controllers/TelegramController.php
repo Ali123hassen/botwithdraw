@@ -17,6 +17,19 @@ class TelegramController extends Controller
     }
     
     /**
+     * Test route (GET) - للاختبار فقط
+     */
+    public function test()
+    {
+        return response()->json([
+            'ok' => true, 
+            'message' => 'Webhook is working!',
+            'bot_token_configured' => !empty($this->botToken),
+            'bot_token' => $this->botToken ? substr($this->botToken, 0, 10) . '...' : 'NOT SET'
+        ]);
+    }
+    
+    /**
      * Handle incoming Telegram webhook
      */
     public function handle(Request $request)
